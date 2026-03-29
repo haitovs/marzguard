@@ -92,17 +92,21 @@ class LogConsumer:
                 self._process_message(str(message), label)
 
     def _process_message(self, message: str, label: str):
-        """Parse a log message and feed into tracker."""
+        """Parse a log message and feed into tracker.
+
+        Skips known node IPs (from Marzban node list) since the main server's
+        log stream shows node IPs as the source for proxied connections.
+        Node streams may also show relay node IPs for chained configs —
+        these are kept since they represent the user's connection path.
+        """
         for line in message.strip().split("\n"):
             if not line:
                 continue
             entry = parse_log_line(line)
             if entry:
-                # Skip node/proxy IPs — these are relay addresses, not real client IPs
-                if entry.source_ip in self._node_ips:
-                    logger.debug("[%s] Skipping node IP %s for %s", label, entry.source_ip, entry.username)
+                # Skip the known Marzban node IPs only when seen on the main stream,
+                # since main logs show "from <node_ip>" for proxied connections.
+                if label == "main" and entry.source_ip in self._node_ips:
                     continue
                 logger.debug("[%s] Tracked: %s -> %s", label, entry.username, entry.source_ip)
                 self._tracker.record(entry.username, entry.source_ip)
-            elif "email" in line.lower():
-                logger.debug("[%s] Unparsed line with email: %s", label, line[:200])

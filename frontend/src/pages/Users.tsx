@@ -29,6 +29,7 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editLimit, setEditLimit] = useState('')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const pageSize = 50
 
@@ -114,10 +115,19 @@ export default function Users() {
         </div>
         <div className="flex items-center space-x-3">
           <button
-            onClick={loadUsers}
-            className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded text-sm transition-colors"
+            onClick={() => {
+              setRefreshing(true)
+              loadUsers()
+              setTimeout(() => setRefreshing(false), 600)
+            }}
+            disabled={refreshing}
+            className={`px-3 py-2 rounded text-sm transition-all ${
+              refreshing
+                ? 'bg-emerald-700 text-emerald-200 scale-95'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
           >
-            Refresh
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
           <button
             onClick={handleSync}

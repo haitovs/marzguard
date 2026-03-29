@@ -80,3 +80,18 @@ class IPTracker:
         """Clear all tracked IPs for a user."""
         with self._lock:
             self._data.pop(username, None)
+
+    def remove_ip(self, ip: str) -> int:
+        """Remove an IP from all users. Returns count of removals."""
+        removed = 0
+        with self._lock:
+            empty_users = []
+            for username, ips in self._data.items():
+                if ip in ips:
+                    del ips[ip]
+                    removed += 1
+                if not ips:
+                    empty_users.append(username)
+            for username in empty_users:
+                del self._data[username]
+        return removed
