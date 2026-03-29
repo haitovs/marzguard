@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class UserIPConfigOut(BaseModel):
     id: int
     username: str
+    admin_username: Optional[str] = None
     ip_limit: Optional[int] = None
     policy_id: Optional[int] = None
     policy_name: Optional[str] = None

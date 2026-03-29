@@ -35,6 +35,7 @@ def _to_out(config: UserIPConfig, tracker: IPTracker) -> UserIPConfigOut:
     return UserIPConfigOut(
         id=config.id,
         username=config.username,
+        admin_username=config.admin_username,
         ip_limit=config.ip_limit,
         policy_id=config.policy_id,
         policy_name=config.policy.name if config.policy else None,
@@ -50,11 +51,29 @@ def _to_out(config: UserIPConfig, tracker: IPTracker) -> UserIPConfigOut:
     )
 
 
+@router.get("/admins")
+async def list_admins(
+    db: AsyncSession = Depends(get_db),
+    _admin: str = Depends(get_current_admin),
+):
+    """List all distinct Marzban admin usernames."""
+    stmt = (
+        select(UserIPConfig.admin_username)
+        .where(UserIPConfig.admin_username.isnot(None))
+        .distinct()
+        .order_by(UserIPConfig.admin_username)
+    )
+    result = await db.execute(stmt)
+    admins = [row[0] for row in result.all()]
+    return {"admins": admins}
+
+
 @router.get("", response_model=UserListOut)
 async def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     search: Optional[str] = None,
+    admin: Optional[str] = Query(None, description="Filter by Marzban admin username"),
     db: AsyncSession = Depends(get_db),
     tracker: IPTracker = Depends(get_tracker),
     _admin: str = Depends(get_current_admin),
@@ -66,6 +85,10 @@ async def list_users(
     if search:
         stmt = stmt.where(UserIPConfig.username.ilike(f"%{search}%"))
         count_stmt = count_stmt.where(UserIPConfig.username.ilike(f"%{search}%"))
+
+    if admin:
+        stmt = stmt.where(UserIPConfig.admin_username == admin)
+        count_stmt = count_stmt.where(UserIPConfig.admin_username == admin)
 
     total_result = await db.execute(count_stmt)
     total = total_result.scalar() or 0
@@ -223,7 +246,7 @@ async def sync_users(
 
     added = 0
     offset = 0
-    all_usernames = []
+    all_users_data: list[dict] = []
 
     try:
         while True:
@@ -234,7 +257,12 @@ async def sync_users(
             for user in users:
                 uname = user.get("username")
                 if uname:
-                    all_usernames.append(uname)
+                    all_users_data.append({
+                        "username": uname,
+                        "admin_username": (user.get("admin", {}) or {}).get("username")
+                            if isinstance(user.get("admin"), dict)
+                            else user.get("admin_username"),
+                    })
             offset += len(users)
             if len(users) < 100:
                 break
@@ -243,12 +271,17 @@ async def sync_users(
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"Marzban API error: {e.response.status_code}")
 
-    for uname in all_usernames:
-        stmt = select(UserIPConfig).where(UserIPConfig.username == uname)
+    for udata in all_users_data:
+        stmt = select(UserIPConfig).where(UserIPConfig.username == udata["username"])
         result = await db.execute(stmt)
-        if not result.scalar_one_or_none():
-            db.add(UserIPConfig(username=uname))
+        config = result.scalar_one_or_none()
+        if config:
+            # Update admin_username on existing users
+            if udata["admin_username"] and config.admin_username != udata["admin_username"]:
+                config.admin_username = udata["admin_username"]
+        else:
+            db.add(UserIPConfig(username=udata["username"], admin_username=udata["admin_username"]))
             added += 1
 
     await db.commit()
-    return UserSyncResult(added=added, total=len(all_usernames))
+    return UserSyncResult(added=added, total=len(all_users_data))

@@ -47,8 +47,13 @@ export const api = {
   getLive: () => request<any>('/dashboard/live'),
 
   // Users
-  getUsers: (page = 1, search = '') =>
-    request<any>(`/users?page=${page}&page_size=50${search ? `&search=${search}` : ''}`),
+  getAdmins: () => request<any>('/users/admins'),
+  getUsers: (page = 1, search = '', admin = '') => {
+    const params = new URLSearchParams({ page: String(page), page_size: '50' })
+    if (search) params.set('search', search)
+    if (admin) params.set('admin', admin)
+    return request<any>(`/users?${params}`)
+  },
   getUser: (username: string) => request<any>(`/users/${username}`),
   updateUser: (username: string, data: any) =>
     request<any>(`/users/${username}`, { method: 'PUT', body: JSON.stringify(data) }),

@@ -61,8 +61,20 @@ async def lifespan(app: FastAPI):
     from src.api.users import set_marzban
     set_marzban(marzban)
 
-    # Start log consumer
-    log_consumer = LogConsumer(tracker)
+    # Start log consumer — collect node IPs to filter them from tracking
+    node_ips: set[str] = set()
+    try:
+        nodes = await marzban.get_nodes()
+        for node in nodes:
+            addr = node.get("address", "")
+            if addr:
+                node_ips.add(addr)
+        if node_ips:
+            logger.info("Node IPs to filter: %s", node_ips)
+    except Exception as e:
+        logger.warning("Failed to fetch node IPs: %s", e)
+
+    log_consumer = LogConsumer(tracker, node_ips=node_ips)
     try:
         ws_urls = await marzban.get_all_log_ws_urls()
         await log_consumer.start(ws_urls)

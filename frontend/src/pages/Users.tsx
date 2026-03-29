@@ -5,6 +5,7 @@ import IPBadge from '../components/IPBadge'
 interface User {
   id: number
   username: string
+  admin_username: string | null
   ip_limit: number | null
   policy_name: string | null
   is_monitored: boolean
@@ -22,6 +23,8 @@ export default function Users() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const [adminFilter, setAdminFilter] = useState('')
+  const [admins, setAdmins] = useState<string[]>([])
   const [syncing, setSyncing] = useState(false)
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editLimit, setEditLimit] = useState('')
@@ -31,15 +34,19 @@ export default function Users() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
+  useEffect(() => {
+    api.getAdmins().then((data) => setAdmins(data.admins)).catch(() => {})
+  }, [])
+
   const loadUsers = () => {
     setLoading(true)
-    api.getUsers(page, search).then((data) => {
+    api.getUsers(page, search, adminFilter).then((data) => {
       setUsers(data.users)
       setTotal(data.total)
     }).finally(() => setLoading(false))
   }
 
-  useEffect(loadUsers, [page, search])
+  useEffect(loadUsers, [page, search, adminFilter])
 
   const handleSync = async () => {
     setSyncing(true)
@@ -122,7 +129,7 @@ export default function Users() {
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="flex items-center space-x-3 mb-4">
         <input
           type="text"
           placeholder="Search users..."
@@ -130,6 +137,26 @@ export default function Users() {
           onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white w-72 focus:outline-none focus:border-emerald-400 transition-colors"
         />
+        {admins.length > 0 && (
+          <select
+            value={adminFilter}
+            onChange={(e) => { setAdminFilter(e.target.value); setPage(1) }}
+            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-400 transition-colors"
+          >
+            <option value="">All Admins</option>
+            {admins.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        )}
+        {(search || adminFilter) && (
+          <button
+            onClick={() => { setSearch(''); setAdminFilter(''); setPage(1) }}
+            className="text-gray-400 hover:text-white text-sm transition-colors"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {error && (
@@ -144,6 +171,7 @@ export default function Users() {
           <thead>
             <tr className="border-b border-gray-700">
               <th className="text-left px-4 py-3 text-xs text-gray-400 uppercase tracking-wider">Username</th>
+              <th className="text-left px-4 py-3 text-xs text-gray-400 uppercase tracking-wider">Admin</th>
               <th className="text-left px-4 py-3 text-xs text-gray-400 uppercase tracking-wider">Policy</th>
               <th className="text-left px-4 py-3 text-xs text-gray-400 uppercase tracking-wider">IP Limit</th>
               <th className="text-left px-4 py-3 text-xs text-gray-400 uppercase tracking-wider">Active IPs</th>
@@ -155,13 +183,13 @@ export default function Users() {
           <tbody>
             {loading && users.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                   Loading...
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
                   {search ? 'No users match your search' : 'No users yet — click "Sync from Marzban" to import'}
                 </td>
               </tr>
@@ -172,6 +200,16 @@ export default function Users() {
                   {user.is_exempt && (
                     <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">EXEMPT</span>
                   )}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-400">
+                  {user.admin_username ? (
+                    <button
+                      onClick={() => { setAdminFilter(user.admin_username!); setPage(1) }}
+                      className="hover:text-emerald-400 transition-colors"
+                    >
+                      {user.admin_username}
+                    </button>
+                  ) : <span className="text-gray-600">—</span>}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-300">{user.policy_name || <span className="text-gray-600">—</span>}</td>
                 <td className="px-4 py-3 text-sm">

@@ -20,10 +20,11 @@ class LogConsumer:
     Auto-reconnects with backoff on disconnection.
     """
 
-    def __init__(self, tracker: IPTracker):
+    def __init__(self, tracker: IPTracker, node_ips: set[str] | None = None):
         self._tracker = tracker
         self._tasks: list[asyncio.Task] = []
         self._running = False
+        self._node_ips = node_ips or set()
 
     async def start(self, ws_urls: list[tuple[str, Optional[int]]]):
         """Start consuming logs from all endpoints.
@@ -97,6 +98,10 @@ class LogConsumer:
                 continue
             entry = parse_log_line(line)
             if entry:
+                # Skip node/proxy IPs — these are relay addresses, not real client IPs
+                if entry.source_ip in self._node_ips:
+                    logger.debug("[%s] Skipping node IP %s for %s", label, entry.source_ip, entry.username)
+                    continue
                 logger.debug("[%s] Tracked: %s -> %s", label, entry.username, entry.source_ip)
                 self._tracker.record(entry.username, entry.source_ip)
             elif "email" in line.lower():

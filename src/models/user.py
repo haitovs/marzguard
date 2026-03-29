@@ -12,6 +12,7 @@ class UserIPConfig(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    admin_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     ip_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     policy_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("policies.id", ondelete="SET NULL"), nullable=True
