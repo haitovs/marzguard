@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,7 +154,13 @@ async def disable_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     from datetime import datetime, timezone
-    await _marzban.disable_user(username)
+    try:
+        await _marzban.disable_user(username)
+    except httpx.ConnectError:
+        raise HTTPException(status_code=502, detail="Cannot connect to Marzban panel")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Marzban API error: {e.response.status_code}")
+
     config.disabled_at = datetime.now(timezone.utc)
     config.disabled_reason = "Manually disabled by admin"
 
@@ -184,7 +191,13 @@ async def enable_user(
     if not config:
         raise HTTPException(status_code=404, detail="User not found")
 
-    await _marzban.enable_user(username)
+    try:
+        await _marzban.enable_user(username)
+    except httpx.ConnectError:
+        raise HTTPException(status_code=502, detail="Cannot connect to Marzban panel")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Marzban API error: {e.response.status_code}")
+
     config.disabled_at = None
     config.disabled_reason = None
 
@@ -212,18 +225,23 @@ async def sync_users(
     offset = 0
     all_usernames = []
 
-    while True:
-        data = await _marzban.get_users(offset=offset, limit=100)
-        users = data.get("users", [])
-        if not users:
-            break
-        for user in users:
-            uname = user.get("username")
-            if uname:
-                all_usernames.append(uname)
-        offset += len(users)
-        if len(users) < 100:
-            break
+    try:
+        while True:
+            data = await _marzban.get_users(offset=offset, limit=100)
+            users = data.get("users", [])
+            if not users:
+                break
+            for user in users:
+                uname = user.get("username")
+                if uname:
+                    all_usernames.append(uname)
+            offset += len(users)
+            if len(users) < 100:
+                break
+    except httpx.ConnectError:
+        raise HTTPException(status_code=502, detail="Cannot connect to Marzban panel")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Marzban API error: {e.response.status_code}")
 
     for uname in all_usernames:
         stmt = select(UserIPConfig).where(UserIPConfig.username == uname)

@@ -67,6 +67,9 @@ class Enforcer:
         effective_limit = config.get_effective_limit(settings.default_ip_limit)
         ip_count = len(active_ips)
 
+        if effective_limit <= 0:
+            return  # No limit configured — skip enforcement
+
         if ip_count > effective_limit:
             logger.warning(
                 "User %s has %d IPs (limit: %d) — disabling",

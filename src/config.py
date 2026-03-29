@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/marzguard.db"
 
     # IP Tracking
-    default_ip_limit: int = 2
+    default_ip_limit: int = 0
     ip_ttl_seconds: int = 300
     enforcement_interval: int = 30
     reenable_check_interval: int = 60

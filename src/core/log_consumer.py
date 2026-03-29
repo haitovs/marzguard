@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import ssl
 from typing import Optional
 
 import websockets
@@ -70,8 +71,14 @@ class LogConsumer:
     async def _consume(self, ws_url: str, label: str):
         """Connect and consume messages from a single WebSocket."""
         logger.info("[%s] Connecting to log stream...", label)
+        ssl_ctx = None
+        if ws_url.startswith("wss://"):
+            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
         async with websockets.connect(
             ws_url,
+            ssl=ssl_ctx,
             ping_interval=20,
             ping_timeout=30,
             close_timeout=5,
@@ -90,4 +97,7 @@ class LogConsumer:
                 continue
             entry = parse_log_line(line)
             if entry:
+                logger.debug("[%s] Tracked: %s -> %s", label, entry.username, entry.source_ip)
                 self._tracker.record(entry.username, entry.source_ip)
+            elif "email" in line.lower():
+                logger.debug("[%s] Unparsed line with email: %s", label, line[:200])

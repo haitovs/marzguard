@@ -14,11 +14,13 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      <nav className="bg-gray-800 border-b border-gray-700">
+      <nav className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <span className="text-xl font-bold text-emerald-400">MarzGuard</span>
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center space-x-6">
+              <NavLink to="/" className="text-lg font-bold text-emerald-400 tracking-tight hover:text-emerald-300 transition-colors">
+                MarzGuard
+              </NavLink>
               <div className="flex space-x-1">
                 {navItems.map((item) => (
                   <NavLink
@@ -26,10 +28,10 @@ export default function Layout() {
                     to={item.path}
                     end={item.path === '/'}
                     className={({ isActive }) =>
-                      `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-gray-900 text-emerald-400'
-                          : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                          ? 'bg-emerald-600/20 text-emerald-400'
+                          : 'text-gray-400 hover:bg-gray-700 hover:text-white'
                       }`
                     }
                   >
@@ -40,7 +42,7 @@ export default function Layout() {
             </div>
             <button
               onClick={logout}
-              className="text-gray-400 hover:text-white text-sm"
+              className="text-gray-400 hover:text-white text-sm transition-colors"
             >
               Logout
             </button>
