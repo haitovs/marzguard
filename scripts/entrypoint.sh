@@ -7,8 +7,6 @@ echo "Starting MarzGuard..."
 if [ -f /etc/letsencrypt/live/default/fullchain.pem ]; then
     echo "TLS certificates found, starting nginx..."
     nginx
-else
-    echo "No TLS certificates found, skipping nginx (direct access on :8000)"
 fi
 
 # Run database migrations
@@ -17,7 +15,7 @@ echo "Running database setup..."
 
 # Start the application
 exec uvicorn src.main:app \
-    --host 127.0.0.1 \
-    --port 8000 \
+    --host 0.0.0.0 \
+    --port "${PORT:-3004}" \
     --workers 1 \
     --log-level "${LOG_LEVEL:-info}"
