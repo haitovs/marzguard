@@ -262,6 +262,7 @@ async def sync_users(
                         "admin_username": (user.get("admin", {}) or {}).get("username")
                             if isinstance(user.get("admin"), dict)
                             else user.get("admin_username"),
+                        "ip_limit": user.get("ip_limit"),
                     })
             offset += len(users)
             if len(users) < 100:
@@ -279,8 +280,17 @@ async def sync_users(
             # Update admin_username on existing users
             if udata["admin_username"] and config.admin_username != udata["admin_username"]:
                 config.admin_username = udata["admin_username"]
+            # Sync ip_limit from Marzban if set there
+            marzban_ip_limit = udata.get("ip_limit")
+            if marzban_ip_limit is not None and marzban_ip_limit > 0:
+                if config.ip_limit != marzban_ip_limit:
+                    config.ip_limit = marzban_ip_limit
         else:
-            db.add(UserIPConfig(username=udata["username"], admin_username=udata["admin_username"]))
+            db.add(UserIPConfig(
+                username=udata["username"],
+                admin_username=udata["admin_username"],
+                ip_limit=udata.get("ip_limit"),
+            ))
             added += 1
 
     await db.commit()
